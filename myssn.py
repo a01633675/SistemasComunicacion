@@ -88,7 +88,8 @@ def client_connect(server_addr):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # Connect the socket to the port where the server is listening
     server_address = (server_addr, SERVER_PORT)
-    if verbose: print('myssn INFO: connecting to {} port {}'.format(*server_address))    
+    if verbose: print('myssn INFO: connecting to {} port {}'.format(*server_address)) 
+    print('\r')   
     try:
         # Connect the socket
         sock.connect(server_address)
@@ -110,20 +111,22 @@ def recv(sock):
         if bytes_msg:
             # Get the message body 
             msg_body_bytes = bytes_msg[:-4]
+            if verbose: print('myssn INFO: rx - encrypted message: {}'.format(msg_body_bytes))
             # Get the 4 bytes of the CRC 32
             msg_crc_bytes = bytes_msg[-4:]
             # Calculate the CRC from the body
             crc = binascii.crc32(msg_body_bytes)
             # Convert the CRC bytes from the message to integer
-            rx_crc = int.from_bytes(msg_crc_bytes, byteorder = 'little')
+            rx_crc = int.from_bytes(msg_crc_bytes, byteorder = 'big')
+            if verbose: print('myssn INFO: rx - crc bytes: {}, rx crc32: {}, calc crc32: {}'.format(msg_crc_bytes, rx_crc, crc))
             # Compare the message's CRC vs. the one we just Calc.
             if crc != rx_crc:
-                if verbose: print('myssn INFO: CRC error!  calc: {} vs.  recv: {}'.format(crc, rx_crc))
+                if verbose: print('myssn INFO: rx - crc error!')
                 data = None
             else:
                 # If the CRC is fine then decrypt the message
-                data = dec(msg_body_bytes)            
-                if verbose: print('myssn DATA: {!r}'.format(data))
+                data = dec(msg_body_bytes)
+                if verbose: print('myssn INFO: rx - data: {!r}'.format(data))
         else:
             # No data was received, this may be because of a closed coennection
             if verbose: print('myssn INFO: no data myssn connection')
@@ -137,15 +140,15 @@ def recv(sock):
 # Transmit data on socket
 ###############################################################################
 def send(sock, data):
-    if verbose: print('myssn INFO: sending data: {}'.format(data))
+    if verbose: print('myssn INFO: tx - sending data: {}'.format(data))
     # First encrypt the message
     bytes_msg = enc(data)
-    if verbose: print('myssn INFO: encrypted message: {}'.format(bytes_msg))
+    if verbose: print('myssn INFO: tx - encrypted message: {}'.format(bytes_msg))
     # Second, calculate the CRC over the encrypted message
     crc = binascii.crc32(bytes_msg)
     # crc is a python's integer, we have to convert it into a 4 bytes array to transmit it
-    crc_bytes = crc.to_bytes(4, byteorder = 'little')
-    if verbose: print('myssn INFO: tx crc32 = {}, crc bytes = {}'.format(crc, crc_bytes))
+    crc_bytes = crc.to_bytes(4, byteorder = 'big')
+    if verbose: print('myssn INFO: tx - crc32: {}, crc bytes: {}'.format(crc, crc_bytes))
     # Concatenate the crc at the end of the encrypted message
     bytes_msg = bytes_msg + crc_bytes
     # Send the message over TCP
